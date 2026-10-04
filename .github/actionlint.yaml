@@ -1,0 +1,4 @@
+self-hosted-runner:
+  # In-cluster runners from awx-infra (actions-runner-controller).
+  labels:
+    - awx-local

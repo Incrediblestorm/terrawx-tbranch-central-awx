@@ -1,0 +1,66 @@
+# Regenerates and applies the AWX projects/templates.
+#
+# Triggered by the project repos (repository_dispatch):
+#   project-feature: a feature/* branch was pushed or deleted -> test only
+#   project-main:    something was merged into main         -> test, then prod
+# or manually (workflow_dispatch).
+#
+# Dispatch and manual runs always use this workflow file from the default
+# branch, so only reviewed code reaches the in-cluster runners.
+name: awx
+
+on:
+  repository_dispatch:
+    types: [project-feature, project-main]
+  workflow_dispatch:
+    inputs:
+      prod:
+        description: Also apply to prod
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: apply (${{ matrix.environment }})
+    runs-on: awx-local
+    strategy:
+      # Test first; prod only if test succeeded.
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        environment: ${{ fromJSON((github.event.action == 'project-main' || inputs.prod) && '["test","prod"]' || '["test"]') }}
+    environment: ${{ matrix.environment }}
+    concurrency:
+      group: awx-${{ matrix.environment }}
+      cancel-in-progress: false
+    env:
+      TF_VAR_awx_url: ${{ vars.AWX_URL }}
+      TF_VAR_awx_token: ${{ secrets.AWX_TOKEN }}
+      TF_VAR_treatment: ${{ vars.AWX_TREATMENT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq jq unzip curl
+
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.13.1
+          tofu_wrapper: false
+
+      - name: Generate project/branch modules
+        run: scripts/codegen.sh "$TF_VAR_treatment"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Init
+        run: tofu init -input=false -backend-config=backend/ci.hcl
+
+      - name: Select workspace
+        run: tofu workspace select -or-create "${{ matrix.environment }}"
+
+      - name: Apply
+        run: tofu apply -auto-approve -input=false

@@ -1,0 +1,25 @@
+# This file is maintained automatically by "tofu init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/tfbrew/awx" {
+  version     = "1.8.1"
+  constraints = "~> 1.8"
+  hashes = [
+    "h1:rS4h5VKMGOAGOhQ+ELzeOWDfZ/jlRAiYD1LC18AI0w0=",
+    "zh:1b3ad9333c6dcb4490f4a19a1d1fb954b31a664358c18e4c7ff8089bf3433536",
+    "zh:364ded33834197202da6fccf12dafdff8e063fdff057e0bc0df6c48d290aef8d",
+    "zh:57cdcb28a17d6e6cca8db7c8ce1c7d78a9d11f5a7ca20b9854c0e3a39d3b9373",
+    "zh:6482f6d614dec54181fa5cf3d48c0463546d77551f3263ec45dad27f0bc08b66",
+    "zh:6c349e8aa2653161f45783e3640a66fa194f3760a0115e9d21c9b4ab22d84698",
+    "zh:7ee716d407f9f5bb1f0fe16ad9340b23f22435042ec4bb37e463334506d2a671",
+    "zh:871d9a036100369f4832cc9cd86d14e14781ac8e54943f2db442d41b75f5521a",
+    "zh:890df766e9b839623b1f0437355032a3c006226a6c200cd911e15ee1a9014e9f",
+    "zh:92587c3835df79a4ea27bf3365aee6fc8361596137bd58b89dadfaa0cdc8eb61",
+    "zh:bf51c62940daae68d3b7bd29f00044c89e3c9a9718a8769fbf96fa14026223e4",
+    "zh:c101f5c81529df28354a82f396b4e7ddd391558a71399534e781ee07fc0b135c",
+    "zh:d868f442909c116a1f57cac9e6415b212587aa094bd685d303bd939c5eaf8e2f",
+    "zh:d8892de0b91c9cd22d4dbb38740e912be25f99ca8c20dd4434a8972118a137d0",
+    "zh:deb4343819f2110e81280b2f658e9011a3021134ed051db2331aaa1472c97f1d",
+    "zh:e4726fdece0b3f84c8d1275a9c1483a35b5cd5428b58654b10f630d4b29f6219",
+  ]
+}
