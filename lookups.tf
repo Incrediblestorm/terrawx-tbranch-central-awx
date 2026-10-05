@@ -11,11 +11,13 @@ data "awx_inventory" "this" {
 }
 
 # The part of each project module's `context` that's the same for every
-# branch; codegen adds project_id and name_prefix (see scripts/codegen.sh).
+# branch; codegen adds project_id, name_prefix and the project and branch
+# labels (see scripts/codegen.sh).
 locals {
   awx = {
     organization_id     = data.awx_organization.default.id
     inventory_id        = data.awx_inventory.this.id
     default_credentials = var.default_credentials
+    label_ids           = [awx_label.this["managed-by:${var.managed_by}"].id]
   }
 }

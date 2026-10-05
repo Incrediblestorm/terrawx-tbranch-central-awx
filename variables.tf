@@ -51,14 +51,27 @@ variable "default_credentials" {
   default     = ["lab-ssh"]
 }
 
-# Locations of central-awx's modules, handed to every project module as
-# `modules` so project repos never contain module URLs: they write
-# `source = var.modules.job_template`. Set in modules.auto.tfvars.json. Must be
-# absolute (a git URL or absolute path). Relies on OpenTofu's early variable
-# evaluation (OpenTofu >= 1.8; not supported by Terraform).
+# --- Written by scripts/codegen.sh (gen__central.auto.tfvars.json) -----------
+
+# Where this repo's modules are, handed to every project module as `modules`
+# so project repos never contain module URLs: they write
+# `source = var.modules.job_template`. Codegen points them at this checkout by
+# absolute path, so project modules always use the module code being applied.
+# Relies on OpenTofu's early variable evaluation (OpenTofu >= 1.8; not
+# supported by Terraform).
 variable "awx_modules" {
   description = "Module sources available to project modules, by name."
   type = object({
     job_template = string
   })
+}
+
+variable "managed_by" {
+  description = "Name of this repo, for the managed-by label."
+  type        = string
+}
+
+variable "managed_branches" {
+  description = "Every branch with templates on this server, for the branch labels."
+  type        = list(string)
 }

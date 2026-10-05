@@ -8,18 +8,19 @@ variable "context" {
     organization_id     = number
     inventory_id        = number
     default_credentials = list(string)
+    label_ids           = list(number)
   })
 }
 
 # --- What the template is --------------------------------------------------
 
 variable "name" {
-  description = "Template name, without branch prefix (added automatically). No spaces."
+  description = "Template name, without the project and branch (added automatically: <project>.<name>, or <branch>.<project>.<name> on a feature branch)."
   type        = string
 
   validation {
-    condition     = can(regex("^[A-Za-z0-9._-]+$", var.name))
-    error_message = "Template names may only use letters, digits, dots, dashes and underscores (no spaces)."
+    condition     = can(regex("^[A-Za-z0-9_-]+$", var.name))
+    error_message = "Template names may only use letters, digits, dashes and underscores (no spaces or dots; dots separate branch, project and template)."
   }
 }
 

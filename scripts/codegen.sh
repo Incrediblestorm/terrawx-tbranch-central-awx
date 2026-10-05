@@ -9,9 +9,22 @@
 #   - a sync step that waits for AWX to pull the branch's current commit,
 #   - a module call to the branch's own template definitions
 #     (<repo>//<module_path>?ref=<commit>), passing one `context` object that
-#     the project module hands to central-awx's modules/job-template (name
-#     prefix "" for the default branch, "<suffix>-" for feature/<suffix>), and
-#     `modules` (var.awx_modules), the sources the project module calls.
+#     the project module hands to modules/job-template, and `modules`
+#     (var.awx_modules), the sources the project module calls.
+#
+# Names (no spaces; dots separate the parts, so branch parts use dashes):
+#
+#   branch                 AWX project                template
+#   main (default)         <project>                  <project>.<template>
+#   feature/install-java   install-java.<project>     install-java.<project>.<template>
+#
+# Labels on every template: project:<project>, branch:<branch>,
+# managed-by:<this repo>.
+#
+# It also writes gen__central.auto.tfvars.json: where this repo's modules
+# are (this checkout, by absolute path, so project modules always use the
+# module code being applied and the repo never needs to know its own URL),
+# this repo's name and every managed branch (for the labels).
 #
 # Every run regenerates every project, so a plain `tofu apply` reconciles
 # everything (deleted branches drop out). Output is deterministic: same
@@ -40,9 +53,13 @@ branches() {
   echo "$out"
 }
 
-rm -f gen_*.tf.json
+rm -f gen_*.tf.json gen__*.json
 
-jq -c '.projects[]' projects.auto.tfvars.json | while read -r p; do
+# This repo's name: from GitHub Actions, or from the origin remote locally.
+self=${GITHUB_REPOSITORY:-$(git remote get-url origin | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##')}
+branch_labels='[]'
+
+while read -r p; do
   name=$(jq -r .name <<<"$p")
   url=$(jq -r .repo_url <<<"$p")
   default=$(jq -r '.default_branch // "main"' <<<"$p")
@@ -55,16 +72,22 @@ jq -c '.projects[]' projects.auto.tfvars.json | while read -r p; do
   jq -e --arg d "$default" 'any(.[]; .name == $d)' <<<"$all" >/dev/null ||
     { echo "$name: default branch $default not found" >&2; exit 1; }
 
-  jq -S \
-    --arg project "$name" --arg url "$url" --arg path "$path" \
-    --arg default "$default" --arg treatment "$treatment" '
-    def key: "\($project)__" + (gsub("[^A-Za-z0-9_-]"; "_"));
-    def prefix: if . == $default then "" else (ltrimstr("feature/") + "-") end;
+  managed=$(jq -c --arg default "$default" --arg treatment "$treatment" '
+    def key: "\(.)" | gsub("[^A-Za-z0-9_-]"; "_");
+    # feature/install-java -> "install-java."; the default branch has none.
+    def prefix: if . == $default then "" else (ltrimstr("feature/") | gsub("[^A-Za-z0-9_-]"; "-")) + "." end;
 
     [ .[]
       | select(.name == $default or ($treatment == "test" and (.name | startswith("feature/"))))
       | . + { key: (.name | key), prefix: (.name | prefix) } ]
-    | if any(.[]; .prefix | test("\\s")) then error("branch names must not contain whitespace") else . end
+    | if (map(.key) | unique | length) != length or (map(.prefix) | unique | length) != length
+      then error("branch names that differ only in punctuation: \(map(.name))") else . end
+  ' <<<"$all")
+  branch_labels=$(jq -c --argjson m "$managed" '. + [$m[].name] | unique' <<<"$branch_labels")
+
+  jq -S \
+    --arg project "$name" --arg url "$url" --arg path "$path" '
+    map(.key = "\($project)__\(.key)")
     | {
         resource: {
           awx_project: (map({ (.key): {
@@ -89,11 +112,22 @@ jq -c '.projects[]' projects.auto.tfvars.json | while read -r p; do
         },
         module: (map({ (.key): {
           source: "git::\($url).git//\($path)?ref=\(.sha)",
-          context: "${merge(local.awx, { project_id = awx_project.\(.key).id, name_prefix = \"\(.prefix)\" })}",
+          context: ("${merge(local.awx, {"
+            + " project_id = awx_project.\(.key).id,"
+            + " name_prefix = \"\(.prefix)\($project).\","
+            + " label_ids = concat(local.awx.label_ids, [awx_label.this[\"project:\($project)\"].id, awx_label.this[\"branch:\(.name)\"].id])"
+            + " })}"),
           modules: "${var.awx_modules}",
           depends_on: ["terraform_data.\(.key)_sync"]
         }}) | add)
-      }' <<<"$all" > "gen_${name}.tf.json"
+      }' <<<"$managed" > "gen_${name}.tf.json"
 
   echo "gen_${name}.tf.json: $(jq -r '.module | keys | join(", ")' "gen_${name}.tf.json")"
-done
+done < <(jq -c '.projects[]' projects.auto.tfvars.json)
+
+jq -nS --arg modules "$PWD/modules" --arg self "${self##*/}" --argjson b "$branch_labels" '{
+  awx_modules: { job_template: "\($modules)/job-template" },
+  managed_by: $self,
+  managed_branches: $b
+}' > gen__central.auto.tfvars.json
+echo "gen__central.auto.tfvars.json: managed_by=${self##*/}, branches: $(jq -r '.managed_branches | join(", ")' gen__central.auto.tfvars.json)"
