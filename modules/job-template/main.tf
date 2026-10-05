@@ -1,6 +1,6 @@
 # One AWX job template, with the conventions every project gets for free:
-# branch-prefixed name, the environment's inventory, and default credentials
-# filled in per credential type.
+# project- and branch-prefixed name, labels, the environment's inventory, and
+# default credentials filled in per credential type.
 
 # --- Credentials: look up by name; fill in defaults per credential type -------
 
@@ -56,6 +56,11 @@ resource "awx_job_template" "this" {
 resource "awx_job_template_credential" "this" {
   job_template_id = awx_job_template.this.id
   credential_ids  = local.credential_ids
+}
+
+resource "awx_job_template_label" "this" {
+  job_template_id = awx_job_template.this.id
+  label_ids       = var.context.label_ids
 }
 
 resource "awx_job_template_survey_spec" "this" {

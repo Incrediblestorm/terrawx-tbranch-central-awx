@@ -16,13 +16,21 @@ into an AWX server.
 3. **`tofu apply`** creates or updates everything. Every run regenerates every
    project, so deleted branches are removed too.
 
-| Treatment | Branches | Template names |
-|---|---|---|
-| `prod` | default branch only | as defined, e.g. `ping` |
-| `test` | default branch + every `feature/*` | default: `ping`; `feature/foo`: `foo-ping` |
+| Treatment | Branches |
+|---|---|
+| `prod` | default branch only |
+| `test` | default branch + every `feature/*` |
 
-The AWX project for `feature/foo` is named `foo-<project>`. Names have no
-spaces.
+Names have no spaces; dots separate the parts, so the branch part uses dashes
+(`feature/a/b.c` becomes `a-b-c`):
+
+| Branch | AWX project | Template |
+|---|---|---|
+| `main` (default) | `simple-ansible-project` | `simple-ansible-project.ping` |
+| `feature/install-java` | `install-java.simple-ansible-project` | `install-java.simple-ansible-project.ping` |
+
+Every template gets three labels, for filtering in AWX:
+`project:<project>`, `branch:<branch>` and `managed-by:<this repo>`.
 
 ### Writing templates in a project repo
 
@@ -47,19 +55,24 @@ variable "modules" { type = any }
 ```
 
 central-awx supplies both: `context` (AWX project for the branch, name prefix,
-inventory, default credentials) and `modules` (where its modules live, set in
-`modules.auto.tfvars.json`). The module then:
+labels, inventory, default credentials) and `modules` (where its modules
+live). The module then:
 
-- names the template, adding the branch prefix (`feature/foo` -> `foo-ping`);
-  names may not contain spaces
+- names the template, adding the project and branch (see above); template
+  names may use letters, digits, `-` and `_`
+- adds the labels
 - uses the environment's inventory (`test-inventory` on test, `inventory` on
   prod)
 - attaches `credentials` (looked up by name, any credential on the server),
   plus each of `default_credentials` whose type the template didn't name
   (default: the `lab-ssh` machine credential)
 
-Module sources in variables need OpenTofu >= 1.8 (early evaluation); this
-setup doesn't work with Terraform.
+`modules` points at this repo's own checkout, by absolute path (codegen
+writes it to `gen__central.auto.tfvars.json`). So project modules always use
+the module code being applied, and nothing here refers to this repo's own
+URL: it works unchanged after a rename or in a fork. Module sources in
+variables need OpenTofu >= 1.8 (early evaluation); this setup doesn't work
+with Terraform.
 
 ## Environments
 
@@ -106,7 +119,9 @@ tofu workspace select -or-create test
 tofu apply -var-file=envs/test.tfvars
 ```
 
-Needs `curl` and `jq`.
+Needs `curl`, `jq` and `git` (codegen reads this repo's name from the
+`origin` remote). Codegen writes `gen_*` files (git-ignored); re-run it, and
+`tofu init`, whenever branches or this repo's modules change.
 
 ## Notes
 
@@ -115,3 +130,7 @@ Needs `curl` and `jq`.
 - Codegen fails the run if GitHub can't be queried or a project's default
   branch is missing. An empty branch list would otherwise remove every
   template of that project.
+- Renaming or moving repos: a project's repo URL is only in
+  `projects.auto.tfvars.json`; this repo's own name and location are
+  detected at run time. The AWX names come from the project's `name`, not
+  its repo, so a repo rename doesn't rename anything in AWX.

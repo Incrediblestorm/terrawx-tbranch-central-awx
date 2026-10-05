@@ -63,4 +63,4 @@ jobs:
         run: tofu workspace select -or-create "${{ matrix.environment }}"
 
       - name: Apply
-        run: tofu apply -auto-approve -input=false
+        run: tofu apply -auto-approve -input=false -no-color
