@@ -10,22 +10,12 @@ data "awx_inventory" "this" {
   organization = data.awx_organization.default.id
 }
 
-data "awx_credential_type" "machine" {
-  name = "Machine"
-  kind = "ssh"
-}
-
-data "awx_credential" "machine" {
-  name            = var.credential_name
-  organization    = data.awx_organization.default.id
-  credential_type = data.awx_credential_type.machine.id
-}
-
-# Passed to every generated project/branch (see scripts/codegen.sh).
+# The part of each project module's `context` that's the same for every
+# branch; codegen adds project_id and name_prefix (see scripts/codegen.sh).
 locals {
   awx = {
-    organization_id = data.awx_organization.default.id
-    inventory_id    = data.awx_inventory.this.id
-    credential_id   = data.awx_credential.machine.id
+    organization_id     = data.awx_organization.default.id
+    inventory_id        = data.awx_inventory.this.id
+    default_credentials = var.default_credentials
   }
 }

@@ -24,20 +24,42 @@ into an AWX server.
 The AWX project for `feature/foo` is named `foo-<project>`. Names have no
 spaces.
 
-### Contract with project repos
+### Writing templates in a project repo
 
-Each project's module (e.g. `awx/`) defines only its job templates and
-receives:
+A project's module (e.g. `awx/`) contains one call to central-awx's
+job-template module per template, plus a two-line `variables.tf`:
 
-| Input | What |
-|---|---|
-| `project_id` | AWX project pinned to this branch |
-| `name_prefix` | `""` on the default branch, `<suffix>-` for `feature/<suffix>` |
-| `inventory_id` | `test-inventory` (test treatment) or `inventory` (prod) |
-| `credential_id` | Machine credential (`lab-ssh`) |
+```hcl
+module "ping" {
+  source  = var.modules.job_template
+  context = var.context
 
-It must declare the `awx` provider with source
-`registry.terraform.io/tfbrew/awx` so it shares this repo's provider.
+  name     = "ping"
+  playbook = "playbooks/ping.yml"
+  # optional: credentials, job_type, limit, extra_vars, become, verbosity,
+  #           timeout, prompt_on_launch, survey, description
+}
+```
+
+```hcl
+variable "context" { type = any }
+variable "modules" { type = any }
+```
+
+central-awx supplies both: `context` (AWX project for the branch, name prefix,
+inventory, default credentials) and `modules` (where its modules live, set in
+`modules.auto.tfvars.json`). The module then:
+
+- names the template, adding the branch prefix (`feature/foo` -> `foo-ping`);
+  names may not contain spaces
+- uses the environment's inventory (`test-inventory` on test, `inventory` on
+  prod)
+- attaches `credentials` (looked up by name, any credential on the server),
+  plus each of `default_credentials` whose type the template didn't name
+  (default: the `lab-ssh` machine credential)
+
+Module sources in variables need OpenTofu >= 1.8 (early evaluation); this
+setup doesn't work with Terraform.
 
 ## Environments
 

@@ -8,8 +8,10 @@
 #   - an AWX project pinned to that branch,
 #   - a sync step that waits for AWX to pull the branch's current commit,
 #   - a module call to the branch's own template definitions
-#     (<repo>//<module_path>?ref=<commit>), with name_prefix "" for the
-#     default branch and "<suffix>-" for feature/<suffix>.
+#     (<repo>//<module_path>?ref=<commit>), passing one `context` object that
+#     the project module hands to central-awx's modules/job-template (name
+#     prefix "" for the default branch, "<suffix>-" for feature/<suffix>), and
+#     `modules` (var.awx_modules), the sources the project module calls.
 #
 # Every run regenerates every project, so a plain `tofu apply` reconciles
 # everything (deleted branches drop out). Output is deterministic: same
@@ -87,10 +89,8 @@ jq -c '.projects[]' projects.auto.tfvars.json | while read -r p; do
         },
         module: (map({ (.key): {
           source: "git::\($url).git//\($path)?ref=\(.sha)",
-          project_id: "${awx_project.\(.key).id}",
-          name_prefix: .prefix,
-          inventory_id: "${local.awx.inventory_id}",
-          credential_id: "${local.awx.credential_id}",
+          context: "${merge(local.awx, { project_id = awx_project.\(.key).id, name_prefix = \"\(.prefix)\" })}",
+          modules: "${var.awx_modules}",
           depends_on: ["terraform_data.\(.key)_sync"]
         }}) | add)
       }' <<<"$all" > "gen_${name}.tf.json"

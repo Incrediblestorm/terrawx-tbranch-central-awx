@@ -14,3 +14,10 @@ provider "awx" {
   endpoint = var.awx_url
   token    = var.awx_token
 }
+
+# Generic AWX API access, used by modules/job-template to find credentials by
+# name (the awx provider needs the credential type to do that).
+provider "restapi" {
+  uri          = "${trimsuffix(var.awx_url, "/")}/api/v2"
+  bearer_token = var.awx_token
+}

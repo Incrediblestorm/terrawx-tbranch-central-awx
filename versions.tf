@@ -11,6 +11,10 @@ terraform {
   }
 
   required_providers {
+    restapi = {
+      source  = "Mastercard/restapi"
+      version = "~> 3.0"
+    }
     awx = {
       # Published on the Terraform registry only, not registry.opentofu.org.
       source  = "registry.terraform.io/tfbrew/awx"

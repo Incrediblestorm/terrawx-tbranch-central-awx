@@ -41,8 +41,24 @@ variable "inventory_names" {
   default     = { test = "test-inventory", prod = "inventory" }
 }
 
-variable "credential_name" {
-  description = "Machine credential the templates use."
-  type        = string
-  default     = "lab-ssh"
+variable "default_credentials" {
+  description = <<-EOT
+    Credentials every job template gets, per credential type, unless the
+    template names its own credential of that type. E.g. ["lab-ssh"] gives
+    every template the lab-ssh machine credential by default.
+  EOT
+  type        = list(string)
+  default     = ["lab-ssh"]
+}
+
+# Locations of central-awx's modules, handed to every project module as
+# `modules` so project repos never contain module URLs: they write
+# `source = var.modules.job_template`. Set in modules.auto.tfvars.json. Must be
+# absolute (a git URL or absolute path). Relies on OpenTofu's early variable
+# evaluation (OpenTofu >= 1.8; not supported by Terraform).
+variable "awx_modules" {
+  description = "Module sources available to project modules, by name."
+  type = object({
+    job_template = string
+  })
 }
